@@ -98,6 +98,28 @@ DataSpace com::entity::EntityDataspace
     }
   ];
   defaultExecutionContext: 'default';
+  stores:
+  [
+    com::entity::EntityDatabase
+  ];
+  testData:
+      Reference
+      #{
+        com::entity::EntityData
+      }#;
+}
+
+
+###Data
+Data com::entity::EntityData
+{
+  Relational
+  #{
+    Entity.LegalEntity:
+      'ENTITY_ID,name\n'+
+      'abc,Entity1\n'+
+      'def,Entity2\n';
+  }#;
 }
 
 
@@ -150,7 +172,7 @@ Runtime com::trade::TradeRuntime
     com::trade::TradeConnection:
     [
       com::trade::TradeDatabase,
-      com::entity::EntityDatabase
+      com::entity::EntityDataspace->getStoresFromDataspace()
     ]
   ];
 }
@@ -199,12 +221,9 @@ Service com::trade::ServiceSimpleProject
                 '2,200,def\n';
             }#,
           com::trade::TradeConnection:
-            Relational
+            DataspaceTestData
             #{
-              Entity.LegalEntity:
-                'ENTITY_ID,name\n'+
-                'abc,Entity1\n'+
-                'def,Entity2\n';
+               com::entity::EntityDataspace
             }#
         ]
       ]
