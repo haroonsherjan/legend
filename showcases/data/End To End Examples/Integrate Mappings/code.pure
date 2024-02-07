@@ -95,18 +95,14 @@ DataSpace com::entity::EntityDataspace
       name: 'default';
       mapping: com::entity::LegalEntityMapping;
       defaultRuntime: com::entity::EntityRuntime;
+      testData:
+            Reference
+            #{
+              com::entity::EntityData
+            }#;
     }
   ];
   defaultExecutionContext: 'default';
-  stores:
-  [
-    com::entity::EntityDatabase
-  ];
-  testData:
-      Reference
-      #{
-        com::entity::EntityData
-      }#;
 }
 
 
