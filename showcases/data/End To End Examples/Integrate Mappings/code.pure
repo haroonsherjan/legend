@@ -9,12 +9,26 @@ Class com::trade::Trade
 {
   id: String[1];
   value: Integer[1];
+  beneficialOwnerId: String[1]
 }
 
 Association com::trade::Trade_LegalEntity
 {
   client: com::entity::LegalEntity[1];
   trades: com::trade::Trade[*];
+}
+
+Class com::person::Employee
+{
+  id: String[1];
+  name: String[1];
+  employerId: String[1];
+}
+
+Association com::entity::Firm_Employee
+{
+  employer: com::entity::LegalEntity[1];
+  employee: com::person::Employee[*];
 }
 
 
@@ -44,10 +58,40 @@ Database com::entity::EntityDatabase
   )
 )
 
+Database com::person::EmployeeDatabase
+(
+  Schema Person
+  (
+    Table Employee
+    (
+      employee_id VARCHAR(32) PRIMARY KEY,
+      employer_id VARCHAR(32) NOT NULL,
+      name VARCHAR(32) NOT NULL
+    )
+  )
+)
+
 
 ###Mapping
+Mapping com::person::EmployeeMapping
+(
+  *com::person::Employee: Relational
+  {
+    ~primaryKey
+    (
+      [com::person::EmployeeDatabase]Person.Employee.employee_id
+    )
+    ~mainTable [com::person::EmployeeDatabase]Person.Employee
+    employeeId: [com::person::EmployeeDatabase]Person.Employee.employee_id,
+    name: [com::person::EmployeeDatabase]Person.Employee.name,
+    employerId: [com::person::EmployeeDatabase]Person.Employee.employer_id
+  }
+)
+
 Mapping com::entity::LegalEntityMapping
 (
+  include com::person::EmployeeDataspace
+  
   *com::entity::LegalEntity: Relational
   {
     ~primaryKey
@@ -57,6 +101,14 @@ Mapping com::entity::LegalEntityMapping
     ~mainTable [com::entity::EntityDatabase]Entity.LegalEntity
     entityId: [com::entity::EntityDatabase]Entity.LegalEntity.ENTITY_ID,
     name: [com::entity::EntityDatabase]Entity.LegalEntity.name
+  }
+
+  com::entity::Firm_Employee: XStore
+  {
+    employer[com_person_Employee, com_entity_LegalEntity]: $this.entityId ==
+  $that.employerId,
+    employee[com_entity_LegalEntity, com_person_Employee]: $this.employerId ==
+  $that.entityId
   }
 )
 
@@ -87,6 +139,24 @@ Mapping com::trade::TradeWithLegalEntityMapping
 
 
 ###DataSpace
+DataSpace com::person::EmployeeDataspace
+{
+  executionContexts:
+  [
+    {
+      name: 'default';
+      mapping: com::person::EmployeeMapping;
+      defaultRuntime: com::person::EmployeeRuntime;
+      testData:
+            Reference
+            #{
+              com::person::EmployeeData
+            }#;
+    }
+  ];
+  defaultExecutionContext: 'default';
+}
+
 DataSpace com::entity::EntityDataspace
 {
   executionContexts:
@@ -118,8 +188,29 @@ Data com::entity::EntityData
   }#;
 }
 
+Data com::person::EmployeeData
+{
+  Relational
+  #{
+    Person.Employee:
+      'employee_id,employer_id,name\n'+
+      '1,abc,Employee1\n'+
+      '2,abc,Employee2\n';
+  }#;
+}
+
 
 ###Connection
+RelationalDatabaseConnection com::person::EmployeeConnection
+{
+  store: com::person::EmployeeDatabase;
+  type: H2;
+  specification: LocalH2
+  {
+  };
+  auth: DefaultH2;
+}
+
 RelationalDatabaseConnection com::entity::EntityConnection
 {
   store: com::entity::EntityDatabase;
@@ -142,6 +233,21 @@ RelationalDatabaseConnection com::trade::TradeConnection
 
 
 ###Runtime
+Runtime com::person::EmployeeRuntime
+{
+  mappings:
+  [
+    com::person::EmployeeMapping
+  ];
+  connectionStores:
+  [
+    com::person::EmployeeConnection:
+    [
+      com::person::EmployeeDatabase
+    ]
+  ];
+}
+
 Runtime com::entity::EntityRuntime
 {
   mappings:
@@ -152,7 +258,8 @@ Runtime com::entity::EntityRuntime
   [
     com::entity::EntityConnection:
     [
-      com::entity::EntityDatabase
+      com::entity::EntityDatabase,
+      com::person::EmployeeDataspace->getStoresFromDataspace()
     ]
   ];
 }
@@ -168,7 +275,8 @@ Runtime com::trade::TradeRuntime
     com::trade::TradeConnection:
     [
       com::trade::TradeDatabase,
-      com::entity::EntityDataspace->getStoresFromDataspace()
+      com::entity::EntityDataspace->getStoresFromDataspace(),
+      com::person::EmployeeDataspace->getStoresFromDataspace()
     ]
   ];
 }
@@ -220,6 +328,11 @@ Service com::trade::ServiceSimpleProject
             DataspaceTestData
             #{
                com::entity::EntityDataspace
+            }#,
+          com::trade::TradeConnection:
+            DataspaceTestData
+            #{
+               com::person::EmployeeDataspace
             }#
         ]
       ]
